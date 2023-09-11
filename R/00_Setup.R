@@ -1,6 +1,9 @@
 
 # Load packages.
+library(geodata)
+library(sf)
 library(tidyverse)
+library(terra)
 
 # Make an object to help navigate the subdirectories.
 my_dir_path <- getwd()

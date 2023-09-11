@@ -5,3 +5,5 @@
 .Rprofile
 figs/
 data/
+bin/
+*alias
