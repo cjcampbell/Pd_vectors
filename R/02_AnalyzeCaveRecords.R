@@ -4,12 +4,14 @@ source("~/Pd_vectors/R/00_Setup.R")
 library(gridExtra)
 library(ggpubr)
 library(ggtext)
+library(ggnewscale)
+library(data.table)
 
 myCRS <- proj_eqd
 
 # Load records ------------------------------------------------------------
 
-myRecords <- list.files(recursive = T, pattern = "04042023.csv", full.names = T) %>%
+myRecords <- list.files(recursive = T, pattern = "SI1 - Records of tree bats in subterranean roosts.csv", full.names = T) %>%
   read.csv() %>%
   # Some manual tidying
   dplyr::mutate(
@@ -51,9 +53,9 @@ myRecords <- list.files(recursive = T, pattern = "04042023.csv", full.names = T)
 rerun_geocoding <- FALSE
 if(rerun_geocoding != FALSE){
 
-  if(file.exists( file.path(wd$bin, "coded_addresses.Rdata") ) )
-    load(wd$bin, file.path("coded_addresses.Rdata"))
-
+  if(file.exists( file.path(wd$bin, "coded_addresses.Rdata") ) ) {
+    load(file.path(wd$bin, "coded_addresses.Rdata"))
+  }
   locations_key <- myRecords %>%
     dplyr::select(address) %>% distinct
 
@@ -90,12 +92,12 @@ if(rerun_geocoding != FALSE){
     plyr::ldply() %>%
     dplyr::rename(input_address = ADDRESS, address_geocoded = address)
 
-  coded_addresses <- full_join(coded_addresses_new, coded_addresses)
+  coded_addresses <- rbind(coded_addresses_new, coded_addresses)
 
-  save(coded_addresses, file = file.path("coded_addresses.Rdata"))
+  fwrite(coded_addresses, file = file.path(wd$bin, "coded_addresses.csv"), row.names = F)
 
 } else {
-  load(file.path(wd$bin, "coded_addresses.Rdata"))
+  coded_addresses <- fread(file.path(wd$bin, "coded_addresses.csv"))
 }
 
 myRecords <- left_join(myRecords, coded_addresses, by = c("address" = "input_address")) %>%
@@ -379,9 +381,14 @@ insetHawaii(p3,  xmax = NA, ymin = NA, ymax = NA) + ggtitle("Alive, outside cave
 timing_records <- dplyr::filter(myRecords, living_record == "Y") %>%
   dplyr::mutate(tidy_month = case_when(
     month == "Two winters" ~ 1,
-    month == "Fall" ~ 10,
-    month == "winter" ~ 1,
-    month == "summer" ~ 6,
+    month == "Fall"        ~ 10,
+    month == "winter"      ~ 1,
+    month == "summer"      ~ 6,
+    month == "8-Jul"       ~ 8,  # Should read "8-9",
+    month == "8-10"        ~ 9,
+    month == "7-9"         ~ 7,
+    month == "8-9"         ~ 8,
+    month == "1-2"         ~ 1,
     TRUE ~ as.numeric(month)
   )
   ) %>%
@@ -501,18 +508,20 @@ timing_records %>%
 xsub1_inside <- "Silver-haired<br>(<i>Lasionycteris</i>)<br><i>n</i>=154"
 xsub2_inside <- "Red<br>(<i>Lasiurus</i>)<br><i>n</i>=15"
 xsub3_inside <- "Hoary<br>(<i>Aeorestes</i>)<br><i>n</i>=6"
+xsub4_inside <- "Yellow<br>(<i>Dasypterus</i>)"
 
 t_inside <- timing_records %>%
+  dplyr::mutate(subGenus = factor(subGenus, levels = c("Dasypterus", "Aeorestes", "Lasiurus", "Lasionycteris"))) %>%
   dplyr::filter(inside == "Y", !is.na(tidy_month)) %>%
   ggplot() +
   aes(tidy_month, y = subGenus, color = subGenus, fill = subGenus) +
   scale_color_manual(
-    values = c("#70AE6E", "#E09F3E", "#A43828", "#335C67"), breaks = c("Dasypterus", "Aeorestes", "Lasiurus", "Lasionycteris"),
-  labels = c(xsub1_inside, xsub2_inside, xsub3_inside, xsub4_inside),
+    values = c("#70AE6E", "#E09F3E", "#A43828", "#335C67"), breaks = c("Dasypterus", "Aeorestes", "Lasiurus", "Lasionycteris") #,
+  # labels = c(xsub1_inside, xsub2_inside, xsub3_inside, xsub4_inside),
   ) +
   scale_fill_manual(
-    values = c("#70AE6E", "#E09F3E", "#A43828", "#335C67"), breaks = c("Dasypterus", "Aeorestes", "Lasiurus", "Lasionycteris"),
-    labels = c(xsub1_inside, xsub2_inside, xsub3_inside, xsub4_inside),
+    values = c("#70AE6E", "#E09F3E", "#A43828", "#335C67"), breaks = c("Dasypterus", "Aeorestes", "Lasiurus", "Lasionycteris") #,
+    # labels = c(xsub1_inside, xsub2_inside, xsub3_inside, xsub4_inside),
   ) +
   scale_y_discrete(
     drop = TRUE,
@@ -527,22 +536,23 @@ timing_records %>%
   as.data.frame() %>%
   count(inside, subGenus)
 
-xsub1_outisde <- "Silver-haired<br>(<i>Lasionycteris</i>)<br><i>n</i>=6"
-xsub2_outisde <- "Red<br>(<i>Lasiurus</i>)<br><i>n</i>=11"
-xsub3_outisde <- "Hoary<br>(<i>Aeorestes</i>)<br><i>n</i>=1"
-xsub4_outisde <- "Yellow<br>(<i>Dasypterus</i>)"
+xsub1_outside <- "Silver-haired<br>(<i>Lasionycteris</i>)<br><i>n</i>=6"
+xsub2_outside <- "Red<br>(<i>Lasiurus</i>)<br><i>n</i>=11"
+xsub3_outside <- "Hoary<br>(<i>Aeorestes</i>)<br><i>n</i>=1"
+xsub4_outside <- "Yellow<br>(<i>Dasypterus</i>)"
 
 t_outside <- timing_records %>%
+  dplyr::mutate(subGenus = factor(subGenus, levels = c("Dasypterus", "Aeorestes", "Lasiurus", "Lasionycteris"))) %>%
   dplyr::filter(inside == "N",  !is.na(tidy_month)) %>%
   ggplot() +
   aes(tidy_month, y = subGenus, color = subGenus, fill = subGenus) +
   scale_color_manual(
-    values = c("#70AE6E", "#E09F3E", "#A43828", "#335C67"), breaks = c("Dasypterus", "Aeorestes", "Lasiurus", "Lasionycteris"),
-    labels = c(xsub1_outside, xsub2_outside, xsub3_outside, xsub4_outside),
+    values = c("#70AE6E", "#E09F3E", "#A43828", "#335C67"), breaks = c("Dasypterus", "Aeorestes", "Lasiurus", "Lasionycteris")#,
+    # labels = c(xsub1_outside, xsub2_outside, xsub3_outside, xsub4_outside),
   ) +
   scale_fill_manual(
-    values = c("#70AE6E", "#E09F3E", "#A43828", "#335C67"), breaks = c("Dasypterus", "Aeorestes", "Lasiurus", "Lasionycteris"),
-    labels = c(xsub1_outside, xsub2_outside, xsub3_outside, xsub4_outside),
+    values = c("#70AE6E", "#E09F3E", "#A43828", "#335C67"), breaks = c("Dasypterus", "Aeorestes", "Lasiurus", "Lasionycteris")#,
+    # labels = c(xsub1_outside, xsub2_outside, xsub3_outside, xsub4_outside),
   ) +
   scale_y_discrete(
     drop = T,
@@ -553,9 +563,48 @@ t_outside <- timing_records %>%
 
 ggarrange(
   t_inside + ggtitle("Alive, inside cave or mine") ,
-  t_outside+ ggtitle("Alive, outside cave or mine") ,
+  t_outside+ ggtitle("Alive, outside cave or mine") + theme(axis.text.y = element_blank()) ,
   labels = LETTERS) %>%
   ggsave(filename = file.path(wd$figs, "timingPlot.png"), width = 10, height = 4)
+
+
+
+
+### Redo timing plots -----
+
+tp <- timing_records %>%
+  dplyr::filter(inside %in% c("Y", "N"),  !is.na(tidy_month)) %>%
+  dplyr::mutate(
+    subGenus = factor(subGenus, levels = c("Dasypterus", "Aeorestes", "Lasiurus", "Lasionycteris")),
+    inside_lab = case_when(inside == "Y" ~ "Alive, inside cave or mine", inside == "N" ~ "Alive, outside cave or mine"),
+    inside_lab = factor(inside_lab, levels = c("Alive, inside cave or mine", "Alive, outside cave or mine"))
+    ) %>%
+  ggplot() +
+  aes(tidy_month, y = subGenus, color = subGenus, fill = subGenus) +
+  scale_color_manual(
+    values = c("#70AE6E", "#E09F3E", "#A43828", "#335C67"), breaks = c("Dasypterus", "Aeorestes", "Lasiurus", "Lasionycteris")#,
+    # labels = c(xsub1_outside, xsub2_outside, xsub3_outside, xsub4_outside),
+  ) +
+  scale_fill_manual(
+    values = c("#70AE6E", "#E09F3E", "#A43828", "#335C67"), breaks = c("Dasypterus", "Aeorestes", "Lasiurus", "Lasionycteris")#,
+    # labels = c(xsub1_outside, xsub2_outside, xsub3_outside, xsub4_outside),
+  ) +
+  scale_y_discrete(
+    drop = T,
+    labels = c(xsub1, xsub2, xsub3),
+    breaks = c("Lasionycteris", "Lasiurus", "Aeorestes")
+  ) +
+  myPlotDeets +
+  facet_wrap(~inside_lab) +
+  theme(
+    strip.background = element_blank(),
+    strip.text = element_text(size = 12)
+  )
+
+ ggsave(tp, filename = file.path(wd$figs, "timingPlot2.png"), width = 10, height = 4)
+
+
+
 
 ## Quantile values ------
 
@@ -622,10 +671,10 @@ library(lubridate)
 library(relayer)
 library(ggnewscale)
 
-timing_records <- mdf %>%
-  filter(living_record == "Y") %>%
-  filter(stateProvince != "Hawaii") %>%
-  filter(subGenus != "Dasypterus") %>%
+timing_records <- timing_records %>%
+  dplyr::filter(living_record == "Y") %>%
+  dplyr::filter(stateProvince != "Hawaii") %>%
+  dplyr::filter(subGenus != "Dasypterus") %>%
   mutate(subGenus = factor(subGenus, levels = c("Lasiurus",
                                                 "Aeorestes",
                                                 "Lasionycteris")))

@@ -4,6 +4,8 @@
 .Ruserdata
 .Rprofile
 figs/
-data/
+data/*
+!data/SI1 - Records of tree bats in subterranean roosts.csv
 bin/
 *alias
+docs/
